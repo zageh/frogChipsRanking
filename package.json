@@ -11,9 +11,9 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
     "lucide-react": "^0.294.0",
-    "next": "latest",
-    "react": "latest",
-    "react-dom": "latest"
+    "next": "14.2.3",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
   },
   "devDependencies": {
     "autoprefixer": "^10.0.1",
