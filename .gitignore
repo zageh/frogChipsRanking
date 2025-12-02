@@ -1,1 +1,8 @@
 node_modules
+# 忽略 Vercel 和 Nextjs 的构建缓存
+.next/
+out/
+build/
+dist/
+node_modules/
+.env*.local
