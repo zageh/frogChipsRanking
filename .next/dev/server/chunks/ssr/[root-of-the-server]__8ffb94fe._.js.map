@@ -1,7 +1,0 @@
-{
-  "version": 3,
-  "sources": [],
-  "sections": [
-    {"offset": {"line": 14, "column": 0}, "map": {"version":3,"sources":["file:///C:/frogChipsRanking/src/utils/supabase.js"],"sourcesContent":["import { createClient } from '@supabase/supabase-js';\r\n\r\nconst supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;\r\nconst supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;\r\n\r\nexport const supabase = createClient(supabaseUrl, supabaseKey);"],"names":[],"mappings":";;;;AAAA;;AAEA,MAAM;AACN,MAAM;AAEC,MAAM,WAAW,IAAA,uMAAY,EAAC,aAAa"}},
-    {"offset": {"line": 27, "column": 0}, "map": {"version":3,"sources":["file:///C:/frogChipsRanking/src/app/page.js"],"sourcesContent":["import { supabase } from '../utils/supabase'; \r\nimport MainView from './components/MainView';\r\n\r\n// 这还是服务端渲染，保持网站加载速度快！\r\nexport default async function Home() {\r\n  \r\n  // 1. 抓取数据\r\n  const { data: chips, error } = await supabase\r\n    .from('chips')\r\n    .select('*')\r\n    .order('admin_rating', { ascending: false });\r\n\r\n  if (error) {\r\n    return <div>Database Connection Error: {error.message}</div>\r\n  }\r\n\r\n  // 2. 把数据扔给“前台经理”MainView，他负责处理搜索和点击\r\n  return <MainView initialChips={chips} />;\r\n}"],"names":[],"mappings":";;;;;AAAA;;;;;;;;;AAIe,eAAe;IAE5B,UAAU;IACV,MAAM,EAAE,MAAM,KAAK,EAAE,KAAK,EAAE,GAAG,MAAM,oIAAQ,CAC1C,IAAI,CAAC,SACL,MAAM,CAAC,KACP,KAAK,CAAC,gBAAgB;QAAE,WAAW;IAAM;IAE5C,IAAI,OAAO;QACT,qBAAO,8OAAC;;gBAAI;gBAA4B,MAAM,OAAO;;;;;;;IACvD;IAEA,oCAAoC;IACpC,qBAAO,8OAAC;QAAS,cAAc;;;;;;AACjC"}}]
-}
