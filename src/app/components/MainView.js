@@ -6,14 +6,12 @@ export default function MainView({ initialChips }) {
   const [searchTerm, setSearchTerm] = useState('')
   const [activeTab, setActiveTab] = useState('admin')
 
-  // 搜索过滤
   const filteredChips = initialChips.filter(chip =>
     chip.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     chip.description?.includes(searchTerm) ||
     chip.brand?.includes(searchTerm)
   )
 
-  // 排序逻辑
   const sortedChips = [...filteredChips].sort((a, b) => {
     if (activeTab === 'admin') {
       return b.admin_rating - a.admin_rating

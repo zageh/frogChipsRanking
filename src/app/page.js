@@ -5,7 +5,7 @@ import supabase from '../utils/supabase'
 export default async function Page() {
   // 从 Supabase 拉取数据
   const { data: chips, error } = await supabase
-    .from('chips') // 表名
+    .from('chipWarehouse') // 表名
     .select('*')
     .order('admin_rating', { ascending: false })
 
@@ -13,7 +13,6 @@ export default async function Page() {
     return <div>Database Connection Error: {error.message}</div>
   }
 
-  // 把数据传给 MainView
   return (
     <div>
       <UploadChipBatch />
