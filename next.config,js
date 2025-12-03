@@ -1,29 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // 如果你在用 App Router，需要开启
   experimental: {
     appDir: true,
   },
-
-  // 设置子路径，让网站挂在 zageh.com/chipRanking
   basePath: '/chipRanking',
-
-  // 如果你要用图片优化功能，可以加上允许的域名
-  images: {
-    domains: ['your-supabase-bucket-url.supabase.co'], // 替换成你自己的图片域名
-  },
-
-  // 如果你需要国际化，可以加上 i18n 配置
-  i18n: {
-    locales: ['zh', 'en'],
-    defaultLocale: 'zh',
-  },
-
-  // 生产环境下强制开启 React 严格模式
   reactStrictMode: true,
-
-  // 如果你需要自定义构建输出目录，可以加这个
-  // distDir: 'build',
 };
 
 module.exports = nextConfig;
