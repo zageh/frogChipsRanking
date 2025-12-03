@@ -1,0 +1,17 @@
+'use client'
+import { Auth } from '@supabase/auth-ui-react'
+import { ThemeSupa } from '@supabase/auth-ui-shared'
+import supabase from '../../utils/supabase'
+
+export default function LoginPage() {
+  return (
+    <div style={{ maxWidth: '400px', margin: '50px auto' }}>
+      <h1 className="text-2xl font-bold mb-4 text-center">🐸🍟 登录 / 注册</h1>
+      <Auth
+        supabaseClient={supabase}
+        appearance={{ theme: ThemeSupa }}
+        providers={['google']} // 可选：支持 Google 登录
+      />
+    </div>
+  )
+}
