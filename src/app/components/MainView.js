@@ -1,7 +1,8 @@
 'use client'
 import { useState, useEffect } from 'react';
 import { Search, Zap, Star, Cookie } from 'lucide-react';
-import supabase from '../utils/supabase'; // 确保路径正确
+import supabase from '../../utils/supabase'
+
 
 export default function MainView() {
   const [chips, setChips] = useState([]);
