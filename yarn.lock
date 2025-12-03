@@ -143,7 +143,7 @@
     iceberg-js "^0.8.0"
     tslib "2.8.1"
 
-"@supabase/supabase-js@^2.39.0":
+"@supabase/supabase-js@^2.86.0":
   version "2.86.0"
   resolved "https://registry.npmmirror.com/@supabase/supabase-js/-/supabase-js-2.86.0.tgz#3523c0991ca7206545ebe7c33ac3e3a4034481da"
   integrity sha512-BaC9sv5+HGNy1ulZwY8/Ev7EjfYYmWD4fOMw9bDBqTawEj6JHAiOHeTwXLRzVaeSay4p17xYLN2NSCoGgXMQnw==
