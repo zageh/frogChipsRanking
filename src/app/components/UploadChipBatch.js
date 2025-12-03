@@ -36,7 +36,7 @@ export default function UploadChipBatch() {
 
       // 上传到 Supabase Storage
       const { error: uploadError } = await supabase.storage
-        .from('imagesForChips') // bucket 名
+        .from("chipWarehouse") // bucket 名
         .upload(filename, file)
 
       if (uploadError) {
@@ -46,14 +46,14 @@ export default function UploadChipBatch() {
 
       // 获取公开链接
       const { data: publicUrlData } = supabase.storage
-        .from('imagesForChips')
+        .from("chipWarehouse")
         .getPublicUrl(filename)
 
       const imageUrl = publicUrlData?.publicUrl
 
       // 插入数据库
       const { error: dbError } = await supabase
-        .from('chipWarehouse') // 表名
+        .from("chipWarehouse") // 表名
         .insert({
           name: chip.name,
           brand: chip.brand,
