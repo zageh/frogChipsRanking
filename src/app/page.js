@@ -17,3 +17,15 @@ export default async function Home() {
   // 2. 把数据扔给“前台经理”MainView，他负责处理搜索和点击
   return <MainView initialChips={chips} />;
 }
+
+import UploadChipBatch from './components/UploadChipBatch'
+import MainView from './components/MainView'
+
+export default function Page() {
+  return (
+    <div>
+      <UploadChipBatch />
+      <MainView />
+    </div>
+  )
+}
