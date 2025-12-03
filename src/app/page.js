@@ -1,17 +1,6 @@
 import { supabase } from '../utils/supabase'; 
 import MainView from './components/MainView';
 
-import UploadChip from './components/UploadChip'
-
-export default function Page() {
-  return (
-    <div>
-      <UploadChip />
-      <MainView />
-    </div>
-  )
-}
-
 // 这还是服务端渲染，保持网站加载速度快！
 export default async function Home() {
   
