@@ -1,31 +1,23 @@
-import { supabase } from '../utils/supabase'; 
-import MainView from './components/MainView';
+import UploadChipBatch from './components/UploadChipBatch'
+import MainView from './components/MainView'
+import supabase from '../utils/supabase'
 
-// 这还是服务端渲染，保持网站加载速度快！
-export default async function Home() {
-  
-  // 1. 抓取数据
+export default async function Page() {
+  // 从 Supabase 拉取数据
   const { data: chips, error } = await supabase
-    .from('chips')
+    .from('chips') // 表名
     .select('*')
-    .order('admin_rating', { ascending: false });
+    .order('admin_rating', { ascending: false })
 
   if (error) {
     return <div>Database Connection Error: {error.message}</div>
   }
 
-  // 2. 把数据扔给“前台经理”MainView，他负责处理搜索和点击
-  return <MainView initialChips={chips} />;
-}
-
-import UploadChipBatch from './components/UploadChipBatch'
-import MainView from './components/MainView'
-
-export default function Page() {
+  // 把数据传给 MainView
   return (
     <div>
       <UploadChipBatch />
-      <MainView />
+      <MainView initialChips={chips} />
     </div>
   )
 }
