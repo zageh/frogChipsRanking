@@ -1,7 +1,7 @@
 'use client' // 客户端组件
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import supabase from '../../../utils/supabase' // 注意路径，根据你项目结构调整
+import supabase from '../../utils/supabase' // 注意路径，根据你项目结构调整
 
 export default function VoteControl({ chipId, initialUserScore, voteCount }) {
   const [votes, setVotes] = useState(initialUserScore || 0) // 用户当前打分
