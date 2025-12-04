@@ -42,10 +42,10 @@ export default function HomePage() {
   // user votes: { [chipId]: score }
   const [userVotesMap, setUserVotesMap] = useState({})
 
-  // voting in-flight flags: { [chipId]: boolean }
+  // voting flags
   const [votingMap, setVotingMap] = useState({})
 
-  // gestures
+  // swiping
   const handlers = useSwipeable({
     onSwipedLeft: () => {
       setDirection('left')
@@ -64,7 +64,7 @@ export default function HomePage() {
     return () => clearTimeout(timer)
   }, [])
 
-  // listen auth session
+  // auth listener
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setUser(data?.session?.user ?? null)
@@ -75,13 +75,14 @@ export default function HomePage() {
     return () => listener.subscription.unsubscribe()
   }, [])
 
-  // fetch frog list (from frogRecommendations)
+  // fetch frog list
   useEffect(() => {
     const fetchFrog = async () => {
       const { data, error } = await supabase
         .from('frogRecommendations')
         .select('*')
         .order('admin_rating', { ascending: false })
+
       if (!error) setFrogChips(data || [])
     }
     fetchFrog()
@@ -93,6 +94,7 @@ export default function HomePage() {
       const { data, error } = await supabase
         .from('chip_vote_stats_weighted_with_comments')
         .select('*')
+
       if (!error) {
         const enriched = (data || []).map(chip => ({
           ...chip,
@@ -105,7 +107,7 @@ export default function HomePage() {
     fetchPublic()
   }, [])
 
-  // fetch comments for a chip (recent 3)
+  // fetch comments (recent 3)
   const fetchComments = async (chipId) => {
     const { data, error } = await supabase
       .from('chipComments')
@@ -113,34 +115,37 @@ export default function HomePage() {
       .eq('chip_id', chipId)
       .order('created_at', { ascending: false })
       .limit(3)
+
     if (!error) {
       setCommentsMap(prev => ({ ...prev, [chipId]: data || [] }))
     }
   }
 
-  // batch fetch comments when publicChips updates
+  // when publicChips change → load comments
   useEffect(() => {
     publicChips.forEach(chip => {
       if (chip?.chip_id != null) fetchComments(chip.chip_id)
     })
   }, [publicChips])
 
-  // fetch current user's votes for visible chips
+  // load current user's votes
   const fetchUserVotesForChips = async (chipIds = []) => {
     if (!user || chipIds.length === 0) return
-    const { data, error } = await supabase
+
+    const { data } = await supabase
       .from('chip_votes')
       .select('chip_id, score')
       .in('chip_id', chipIds)
       .eq('user_id', user.id)
-    if (!error && data) {
+
+    if (data) {
       const map = {}
       data.forEach(r => { map[r.chip_id] = Number(r.score) })
       setUserVotesMap(prev => ({ ...prev, ...map }))
     }
   }
 
-  // whenever user or publicChips change, fetch user's votes for those chips
+  // refresh when user or public list changes
   useEffect(() => {
     if (!user) {
       setUserVotesMap({})
@@ -154,25 +159,30 @@ export default function HomePage() {
   const handleUpload = async (event) => {
     const file = event.target.files?.[0]
     if (!file) return
+
     const path = `public/${Date.now()}_${file.name}`
     const { error } = await supabase.storage
       .from('chip-images')
       .upload(path, file, { cacheControl: '3600', upsert: false })
+
     if (error) alert(error.message)
     else alert('上传成功！')
   }
 
-  // comment handlers
+  // comment change
   const handleCommentChange = (chipId, value) => {
     setCommentTextMap(prev => ({ ...prev, [chipId]: value }))
   }
 
+  // submit comment
   const handleComment = async (chipId) => {
     const content = (commentTextMap[chipId] || '').trim()
     if (!content) return
+
     const { error } = await supabase
       .from('chipComments')
       .insert({ chip_id: chipId, content })
+
     if (error) alert(error.message)
     else {
       setCommentTextMap(prev => ({ ...prev, [chipId]: '' }))
@@ -181,52 +191,46 @@ export default function HomePage() {
     }
   }
 
-  // refresh a single chip's aggregated stats from the view
+  // refresh stats
   const refreshChipStats = async (chipId) => {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('chip_vote_stats_weighted_with_comments')
       .select('*')
       .eq('chip_id', chipId)
       .single()
-    if (!error && data) {
+
+    if (data) {
       setPublicChips(prev => prev.map(chip =>
         chip.chip_id === chipId
           ? { ...chip, ...data, strength: calculateStrength(data) }
           : chip
       ))
       fetchComments(chipId)
-    } else {
-      const { data: allData, error: allErr } = await supabase
-        .from('chip_vote_stats_weighted_with_comments')
-        .select('*')
-      if (!allErr) {
-        const enriched = (allData || []).map(chip => ({ ...chip, strength: calculateStrength(chip) }))
-        enriched.sort((a, b) => b.strength - a.strength)
-        setPublicChips(enriched)
-      }
     }
   }
 
-  // voting logic: upsert user's vote (with optimistic updates)
+  // vote → optimistic update
   const handleVote = async (chipId, score) => {
     if (!user) {
       alert('请先登录再评分')
       return
     }
-    setVotingMap(prev => ({ ...prev, [chipId]: true }))
 
+    setVotingMap(prev => ({ ...prev, [chipId]: true }))
     const prevUserScore = userVotesMap[chipId] ?? null
     setUserVotesMap(prev => ({ ...prev, [chipId]: score }))
 
     setPublicChips(prev => prev.map(chip => {
       if (chip.chip_id !== chipId) return chip
       const prevCount = Number(chip.vote_count || 0)
-      const prevAvg = Number(chip.weighted_avg_score || chip.avg_score || 0)
+      const prevAvg = Number(chip.weighted_avg_score || 0)
       const hadPrev = prevUserScore !== null
+
       const newCount = hadPrev ? prevCount : prevCount + 1
       const newAvg = hadPrev
         ? ((prevAvg * prevCount) - prevUserScore + score) / (newCount || 1)
         : ((prevAvg * prevCount) + score) / (newCount || 1)
+
       const newChip = { ...chip, vote_count: newCount, weighted_avg_score: newAvg }
       newChip.strength = calculateStrength(newChip)
       return newChip
@@ -239,13 +243,14 @@ export default function HomePage() {
 
     if (error) {
       alert('评分失败：' + error.message)
-      // rollback optimistic
+
       setUserVotesMap(prev => {
         const copy = { ...prev }
         if (prevUserScore === null) delete copy[chipId]
         else copy[chipId] = prevUserScore
         return copy
       })
+
       await refreshChipStats(chipId)
     } else {
       await refreshChipStats(chipId)
@@ -254,19 +259,19 @@ export default function HomePage() {
     setVotingMap(prev => ({ ...prev, [chipId]: false }))
   }
 
-  // search helpers
-  const normalize = (s) => (s || '').toString().toLowerCase()
+  // search
+  const normalize = (s) => (s || '').toLowerCase()
   const matches = (chip) => {
     const q = normalize(query)
     if (!q) return true
-    const fields = [chip.brand, chip.name, chip.flavor, chip.description].map(normalize)
-    return fields.some(f => f.includes(q))
+    return [chip.brand, chip.name, chip.flavor, chip.description]
+      .map(normalize)
+      .some(f => f.includes(q))
   }
 
   const filteredFrog = useMemo(() => frogChips.filter(matches), [frogChips, query])
   const filteredPublic = useMemo(() => publicChips.filter(matches), [publicChips, query])
 
-  // chart config
   const chartData = {
     labels: filteredPublic.map(chip => chip.flavor || chip.name),
     datasets: [
@@ -292,7 +297,6 @@ export default function HomePage() {
     setActiveTab(dir === 'left' ? 'public' : 'frog')
   }
 
-  // small UI helpers
   const EmojiForChip = (chip) => {
     const score = chip.admin_rating ?? chip.strength ?? 0
     if (score >= 4.8) return '🔥'
@@ -303,7 +307,7 @@ export default function HomePage() {
   }
 
   const ColorBadge = ({ style }) => (
-    <span className="inline-block w-3 h-3 rounded-sm mr-2" style={{ background: style || 'linear-gradient(135deg,#ffb86b,#ff6b6b)' }} />
+    <span className="inline-block w-3 h-3 rounded-sm mr-2" style={{ background: style }} />
   )
 
   const Stars = ({ chip }) => {
@@ -318,7 +322,7 @@ export default function HomePage() {
               onClick={() => handleVote(chip.chip_id, n)}
               disabled={votingMap[chip.chip_id]}
               aria-label={`给 ${n} 星`}
-              className={`text-xl leading-none ${filled ? 'text-yellow-400' : 'text-gray-300'} hover:scale-110 transition-transform`}
+              className={`text-xl ${filled ? 'text-yellow-400' : 'text-gray-300'} hover:scale-110 transition-transform`}
             >
               ★
             </button>
@@ -331,14 +335,15 @@ export default function HomePage() {
 
   return (
     <div {...handlers} className="relative max-w-4xl mx-auto p-6">
-      {/* Top actions */}
-      <div className="mb-6 flex items-center justify-between gap-4">
-        <Link href="/auth" className="inline-flex items-center px-4 py-2 rounded bg-gradient-to-r from-indigo-600 to-cyan-500 text-white shadow">
+
+      {/* Header */}
+      <div className="mb-6 flex items-center justify-between">
+        <Link href="/auth" className="px-4 py-2 rounded bg-gradient-to-r from-indigo-600 to-cyan-500 text-white shadow">
           🔐 登录
         </Link>
 
-        <label className="flex items-center gap-2 cursor-pointer">
-          <span className="px-3 py-1 rounded bg-gray-100 hover:bg-gray-200 inline-flex items-center shadow-sm">📤 上传图片</span>
+        <label className="cursor-pointer">
+          <span className="px-3 py-1 rounded bg-gray-100 hover:bg-gray-200 shadow-sm">📤 上传图片</span>
           <input type="file" className="hidden" onChange={handleUpload} />
         </label>
       </div>
@@ -355,41 +360,73 @@ export default function HomePage() {
 
       {/* Tabs */}
       <div className="flex justify-center gap-6 mb-6">
-        <button onClick={() => setActiveTab('frog')} className={`px-4 py-2 rounded-full ${activeTab === 'frog' ? 'bg-indigo-50 text-indigo-700 shadow' : 'text-gray-600 hover:bg-gray-100'}`}>🐸 青蛙推荐榜</button>
-        <button onClick={() => setActiveTab('public')} className={`px-4 py-2 rounded-full ${activeTab === 'public' ? 'bg-cyan-50 text-cyan-700 shadow' : 'text-gray-600 hover:bg-gray-100'}`}>🗳️ 大众口碑榜</button>
+        <button onClick={() => setActiveTab('frog')}
+          className={`px-4 py-2 rounded-full ${activeTab === 'frog' ? 'bg-indigo-50 text-indigo-700 shadow' : 'text-gray-600 hover:bg-gray-100'}`}>
+          🐸 青蛙推荐榜
+        </button>
+
+        <button onClick={() => setActiveTab('public')}
+          className={`px-4 py-2 rounded-full ${activeTab === 'public' ? 'bg-cyan-50 text-cyan-700 shadow' : 'text-gray-600 hover:bg-gray-100'}`}>
+          🗳️ 大众口碑榜
+        </button>
       </div>
 
       {/* Arrows */}
-      <button onClick={() => handleArrowClick('right')} className="absolute left-0 top-1/2 transform -translate-y-1/2 bg-gray-200 p-2 rounded-full shadow hover:bg-gray-300">←</button>
-      <button onClick={() => handleArrowClick('left')} className="absolute right-0 top-1/2 transform -translate-y-1/2 bg-gray-200 p-2 rounded-full shadow hover:bg-gray-300">→</button>
+      <button onClick={() => handleArrowClick('right')} className="absolute left-0 top-1/2 -translate-y-1/2 bg-gray-200 p-2 rounded-full shadow">←</button>
+      <button onClick={() => handleArrowClick('left')} className="absolute right-0 top-1/2 -translate-y-1/2 bg-gray-200 p-2 rounded-full shadow">→</button>
 
-      <div className={`transition-transform duration-500 ease-in-out ${direction === 'left' ? 'translate-x-[-20px]' : direction === 'right' ? 'translate-x-[20px]' : ''}`}>
-        {/* Frog list */}
+      {/* Content */}
+      <div className={`transition-transform duration-500 ${direction === 'left' ? '-translate-x-5' : direction === 'right' ? 'translate-x-5' : ''}`}>
+
+        {/* Frog List */}
         {activeTab === 'frog' && (
           <ul className="space-y-4">
             {filteredFrog.map(chip => (
               <li key={chip.id} className="p-4 border rounded-lg bg-white shadow-sm hover:shadow-md transition">
                 <div className="flex items-center justify-between">
+                  
+                  {/* Left info */}
                   <div className="flex items-center">
-                    <div style={{ width: 36, height: 36, borderRadius: 8, background: 'linear-gradient(135deg,#ffd166,#ef476f)' }} className="flex items-center justify-center mr-3 text-lg">🍟</div>
+                    {/* If image exists, show it */}
+                    {chip.image_url ? (
+                      <img
+                        src={chip.image_url}
+                        alt={chip.name}
+                        className="w-10 h-10 rounded-lg mr-3 object-cover"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-yellow-300 to-red-400 flex items-center justify-center text-lg mr-3">
+                        🍟
+                      </div>
+                    )}
+
                     <div>
                       <div className="flex items-center">
-                        <span className="mr-2 text-sm">🇺🇸</span>
                         <strong className="text-lg">{chip.brand} — {chip.name}</strong>
                         <span className="ml-2 text-sm">{EmojiForChip(chip)}</span>
                       </div>
-                      {chip.flavor && <p className="text-gray-700 mt-1">{chip.flavor}</p>}
+
+                      {chip.flavor && (
+                        <p className="text-gray-700 text-sm mt-1">{chip.flavor}</p>
+                      )}
                     </div>
                   </div>
-                  <div className="text-sm text-gray-500">⭐ {chip.admin_rating ? chip.admin_rating.toFixed(1) : '—'}</div>
+
+                  {/* Rating */}
+                  <div className="text-sm text-gray-500">
+                    ⭐ {chip.admin_rating ? chip.admin_rating.toFixed(1) : '—'}
+                  </div>
                 </div>
-                <p className="text-gray-600 mt-3">{chip.description}</p>
+
+                {chip.description && (
+                  <p className="text-gray-600 mt-3">{chip.description}</p>
+                )}
               </li>
             ))}
           </ul>
         )}
 
-        {/* Public list */}
+        {/* Public List */}
         {activeTab === 'public' && (
           <>
             <div className="mb-4">
@@ -399,28 +436,35 @@ export default function HomePage() {
             <ul className="space-y-4 mt-6">
               {filteredPublic.map((chip) => (
                 <li key={chip.chip_id} className="p-4 border rounded-lg bg-white shadow-sm hover:shadow-md transition">
+
                   <div className="flex items-start gap-3">
-                    <div style={{ width: 44, height: 44, borderRadius: 10, background: 'linear-gradient(135deg,#7b2ff7,#f107a3)' }} className="flex items-center justify-center text-xl">
+
+                    <div className="w-11 h-11 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-xl">
                       {EmojiForChip(chip)}
                     </div>
 
                     <div className="flex-1">
+
                       <div className="flex items-center justify-between">
                         <div className="flex items-center">
                           <ColorBadge style="linear-gradient(135deg,#ffb86b,#ff6b6b)" />
                           <strong className="text-lg">{chip.brand} — {chip.flavor || chip.name}</strong>
                           <span className="ml-2 text-sm text-gray-500">({chip.vote_count} votes)</span>
                         </div>
-                        <div className="text-sm text-gray-500">实力 {chip.strength ? chip.strength.toFixed(2) : '—'}</div>
+
+                        <div className="text-sm text-gray-500">
+                          实力 {chip.strength ? chip.strength.toFixed(2) : '—'}
+                        </div>
                       </div>
 
                       <p className="text-gray-600 mt-2">{chip.description}</p>
 
                       <p className="mt-3 text-sm text-gray-600">
-                        平均分: <span className="font-medium">{chip.weighted_avg_score ? chip.weighted_avg_score.toFixed(2) : '暂无'}</span> · 评论数: <span className="font-medium">{chip.comment_count}</span>
+                        平均分: <span className="font-medium">{chip.weighted_avg_score ? chip.weighted_avg_score.toFixed(2) : '暂无'}</span>
+                        · 评论数: <span className="font-medium">{chip.comment_count}</span>
                       </p>
 
-                      {/* Rating UI */}
+                      {/* Rating */}
                       <div className="mt-3">
                         <Stars chip={chip} />
                       </div>
@@ -441,6 +485,7 @@ export default function HomePage() {
                         </div>
                       </div>
 
+                      {/* Comment Input */}
                       <div className="mt-3 flex gap-2">
                         <textarea
                           value={commentTextMap[chip.chip_id] || ''}
@@ -451,18 +496,21 @@ export default function HomePage() {
                         />
                         <button
                           onClick={() => handleComment(chip.chip_id)}
-                          className="inline-flex items-center gap-2 bg-gradient-to-r from-rose-500 to-indigo-500 text-white px-4 py-2 rounded hover:opacity-95"
+                          className="bg-gradient-to-r from-rose-500 to-indigo-500 text-white px-4 py-2 rounded hover:opacity-95"
                         >
                           ❤️ 提交
                         </button>
                       </div>
+
                     </div>
                   </div>
+
                 </li>
               ))}
             </ul>
           </>
         )}
+
       </div>
     </div>
   )
