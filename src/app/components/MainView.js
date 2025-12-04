@@ -69,7 +69,7 @@ export default function MainView({ initialChips, onDeleteSuccess }) {
           </div>
         </div>
           <button
-            onClick={() => window.location.href = '/auth'}
+            onClick={() => window.location.href = '/chipRanking/auth'}
               className="px-4 py-1 font-bold text-white bg-blue-500 rounded-full hover:bg-blue-600 text-sm"
           >
             登录 / 注册
