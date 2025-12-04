@@ -23,7 +23,7 @@ export default function AuthPage() {
 
     if (loginData) {
       localStorage.setItem('user', JSON.stringify(loginData))
-      router.push('/chipRanking')
+      router.push('/')
       return
     }
 
@@ -38,7 +38,7 @@ export default function AuthPage() {
       setError('注册失败：' + signupError.message)
     } else {
       localStorage.setItem('user', JSON.stringify(signupData))
-      router.push('/chipRanking')
+      router.push('/')
     }
   }
 

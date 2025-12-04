@@ -34,7 +34,7 @@ export default function MainView({ initialChips, onDeleteSuccess }) {
     if (!confirmDelete) return
 
     const { error } = await supabase
-      .from('chipWarehouse')
+      .from("chipWarehouse")
       .delete()
       .eq('id', id)
 
@@ -69,7 +69,7 @@ export default function MainView({ initialChips, onDeleteSuccess }) {
           </div>
         </div>
           <button
-            onClick={() => window.location.href = '/login'}
+            onClick={() => window.location.href = '/auth'}
               className="px-4 py-1 font-bold text-white bg-blue-500 rounded-full hover:bg-blue-600 text-sm"
           >
             登录 / 注册
