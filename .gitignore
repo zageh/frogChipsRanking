@@ -1,8 +1,21 @@
-node_modules
-# 忽略 Vercel 和 Nextjs 的构建缓存
+# Node.js dependencies
+node_modules/
+
+# Next.js build output
 .next/
 out/
 build/
 dist/
-node_modules/
+
+# Environment variables (本地环境配置文件)
+.env.local
 .env*.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS-specific files
+.DS_Store
+Thumbs.db
