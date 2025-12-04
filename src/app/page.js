@@ -75,15 +75,19 @@ export default function HomePage() {
     return () => listener.subscription.unsubscribe()
   }, [])
 
-  // fetch frog list
+  // fetch frog list (注意：表名使用小写 frogrecommendations)
   useEffect(() => {
     const fetchFrog = async () => {
       const { data, error } = await supabase
-        .from('frogRecommendations')
+        .from('frogrecommendations')
         .select('*')
         .order('admin_rating', { ascending: false })
 
-      if (!error) setFrogChips(data || [])
+      if (error) {
+        console.error('fetch frog error', error)
+        return
+      }
+      setFrogChips(data || [])
     }
     fetchFrog()
   }, [])
@@ -102,15 +106,17 @@ export default function HomePage() {
         }))
         enriched.sort((a, b) => b.strength - a.strength)
         setPublicChips(enriched)
+      } else {
+        console.error('fetch public error', error)
       }
     }
     fetchPublic()
   }, [])
 
-  // fetch comments (recent 3)
+  // fetch comments (recent 3)  —— 注意表名改为小写 chipcomments
   const fetchComments = async (chipId) => {
     const { data, error } = await supabase
-      .from('chipComments')
+      .from('chipcomments')
       .select('content, created_at')
       .eq('chip_id', chipId)
       .order('created_at', { ascending: false })
@@ -118,6 +124,8 @@ export default function HomePage() {
 
     if (!error) {
       setCommentsMap(prev => ({ ...prev, [chipId]: data || [] }))
+    } else {
+      console.error('fetchComments error', error)
     }
   }
 
@@ -132,11 +140,16 @@ export default function HomePage() {
   const fetchUserVotesForChips = async (chipIds = []) => {
     if (!user || chipIds.length === 0) return
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('chip_votes')
       .select('chip_id, score')
       .in('chip_id', chipIds)
       .eq('user_id', user.id)
+
+    if (error) {
+      console.error('fetchUserVotesForChips error', error)
+      return
+    }
 
     if (data) {
       const map = {}
@@ -174,17 +187,19 @@ export default function HomePage() {
     setCommentTextMap(prev => ({ ...prev, [chipId]: value }))
   }
 
-  // submit comment
+  // submit comment  —— 注意表名改为小写 chipcomments
   const handleComment = async (chipId) => {
     const content = (commentTextMap[chipId] || '').trim()
     if (!content) return
 
     const { error } = await supabase
-      .from('chipComments')
+      .from('chipcomments')
       .insert({ chip_id: chipId, content })
 
-    if (error) alert(error.message)
-    else {
+    if (error) {
+      alert(error.message)
+      console.error('handleComment error', error)
+    } else {
       setCommentTextMap(prev => ({ ...prev, [chipId]: '' }))
       fetchComments(chipId)
       refreshChipStats(chipId)
@@ -193,19 +208,32 @@ export default function HomePage() {
 
   // refresh stats
   const refreshChipStats = async (chipId) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('chip_vote_stats_weighted_with_comments')
       .select('*')
       .eq('chip_id', chipId)
       .single()
 
-    if (data) {
+    if (!error && data) {
       setPublicChips(prev => prev.map(chip =>
         chip.chip_id === chipId
           ? { ...chip, ...data, strength: calculateStrength(data) }
           : chip
       ))
       fetchComments(chipId)
+    } else if (error) {
+      // fallback: reload all
+      console.error('refreshChipStats single error', error)
+      const { data: allData, error: allErr } = await supabase
+        .from('chip_vote_stats_weighted_with_comments')
+        .select('*')
+      if (!allErr) {
+        const enriched = (allData || []).map(chip => ({ ...chip, strength: calculateStrength(chip) }))
+        enriched.sort((a, b) => b.strength - a.strength)
+        setPublicChips(enriched)
+      } else {
+        console.error('refreshChipStats fallback error', allErr)
+      }
     }
   }
 
@@ -259,8 +287,8 @@ export default function HomePage() {
     setVotingMap(prev => ({ ...prev, [chipId]: false }))
   }
 
-  // search
-  const normalize = (s) => (s || '').toLowerCase()
+  // search helpers
+  const normalize = (s) => (s || '').toString().toLowerCase()
   const matches = (chip) => {
     const q = normalize(query)
     if (!q) return true
