@@ -39,7 +39,7 @@ export default function HomePage() {
   // auth / user
   const [user, setUser] = useState(null)
 
-  // user votes map: { [chipId]: score }
+  // user votes: { [chipId]: score }
   const [userVotesMap, setUserVotesMap] = useState({})
 
   // voting in-flight flags: { [chipId]: boolean }
@@ -75,11 +75,11 @@ export default function HomePage() {
     return () => listener.subscription.unsubscribe()
   }, [])
 
-  // fetch frog list
+  // fetch frog list (from frogRecommendations)
   useEffect(() => {
     const fetchFrog = async () => {
       const { data, error } = await supabase
-        .from('chipWarehouse')
+        .from('frogRecommendations')
         .select('*')
         .order('admin_rating', { ascending: false })
       if (!error) setFrogChips(data || [])
@@ -121,7 +121,7 @@ export default function HomePage() {
   // batch fetch comments when publicChips updates
   useEffect(() => {
     publicChips.forEach(chip => {
-      fetchComments(chip.chip_id)
+      if (chip?.chip_id != null) fetchComments(chip.chip_id)
     })
   }, [publicChips])
 
@@ -146,7 +146,7 @@ export default function HomePage() {
       setUserVotesMap({})
       return
     }
-    const chipIds = publicChips.map(c => c.chip_id)
+    const chipIds = publicChips.map(c => c.chip_id).filter(Boolean)
     if (chipIds.length) fetchUserVotesForChips(chipIds)
   }, [user, publicChips])
 
@@ -177,7 +177,6 @@ export default function HomePage() {
     else {
       setCommentTextMap(prev => ({ ...prev, [chipId]: '' }))
       fetchComments(chipId)
-      // optionally refresh comment_count for chip by refetching stats
       refreshChipStats(chipId)
     }
   }
@@ -190,10 +189,13 @@ export default function HomePage() {
       .eq('chip_id', chipId)
       .single()
     if (!error && data) {
-      setPublicChips(prev => prev.map(chip => chip.chip_id === chipId ? { ...chip, ...data, strength: calculateStrength(data) } : chip))
+      setPublicChips(prev => prev.map(chip =>
+        chip.chip_id === chipId
+          ? { ...chip, ...data, strength: calculateStrength(data) }
+          : chip
+      ))
       fetchComments(chipId)
     } else {
-      // fallback: refetch whole public list if single fetch fails
       const { data: allData, error: allErr } = await supabase
         .from('chip_vote_stats_weighted_with_comments')
         .select('*')
@@ -205,16 +207,14 @@ export default function HomePage() {
     }
   }
 
-  // voting logic: upsert user's vote
+  // voting logic: upsert user's vote (with optimistic updates)
   const handleVote = async (chipId, score) => {
     if (!user) {
       alert('请先登录再评分')
       return
     }
-    // prevent duplicate clicks
     setVotingMap(prev => ({ ...prev, [chipId]: true }))
 
-    // optimistic update: update userVotesMap and publicChips approx
     const prevUserScore = userVotesMap[chipId] ?? null
     setUserVotesMap(prev => ({ ...prev, [chipId]: score }))
 
@@ -222,7 +222,6 @@ export default function HomePage() {
       if (chip.chip_id !== chipId) return chip
       const prevCount = Number(chip.vote_count || 0)
       const prevAvg = Number(chip.weighted_avg_score || chip.avg_score || 0)
-      // if user had previous score, replace it; else add one vote
       const hadPrev = prevUserScore !== null
       const newCount = hadPrev ? prevCount : prevCount + 1
       const newAvg = hadPrev
@@ -233,7 +232,6 @@ export default function HomePage() {
       return newChip
     }))
 
-    // upsert to chip_votes
     const payload = { user_id: user.id, chip_id: chipId, score }
     const { error } = await supabase
       .from('chip_votes')
@@ -241,7 +239,7 @@ export default function HomePage() {
 
     if (error) {
       alert('评分失败：' + error.message)
-      // rollback optimistic: restore previous user vote and refresh stats
+      // rollback optimistic
       setUserVotesMap(prev => {
         const copy = { ...prev }
         if (prevUserScore === null) delete copy[chipId]
@@ -250,7 +248,6 @@ export default function HomePage() {
       })
       await refreshChipStats(chipId)
     } else {
-      // success: refresh accurate stats from backend
       await refreshChipStats(chipId)
     }
 
@@ -275,7 +272,7 @@ export default function HomePage() {
     datasets: [
       {
         label: '实力值',
-        data: filteredPublic.map(chip => Number(chip.strength?.toFixed(2))),
+        data: filteredPublic.map(chip => Number((chip.strength ?? 0).toFixed(2))),
         backgroundColor: 'rgba(99, 102, 241, 0.8)'
       }
     ]
@@ -309,7 +306,6 @@ export default function HomePage() {
     <span className="inline-block w-3 h-3 rounded-sm mr-2" style={{ background: style || 'linear-gradient(135deg,#ffb86b,#ff6b6b)' }} />
   )
 
-  // star component for rating UI
   const Stars = ({ chip }) => {
     const current = userVotesMap[chip.chip_id] ?? Math.round(chip.weighted_avg_score || 0)
     return (
