@@ -1,26 +1,35 @@
-'use client' // 这句告诉Next.js这是一个会动的组件
-import { useState } from 'react';
-import { supabase } from '../../utils/supabase'; // 这里的路径可能需要根据你实际位置微调，如果是 ../utils/supabase 
+'use client' // 告诉 Next.js 这是一个客户端组件
+import { useState } from 'react'
+import supabase from '../../../utils/supabase' // 注意路径，根据你文件位置调整
 
 export default function VoteControl({ chipId, initialUserScore, voteCount }) {
-  const [votes, setVotes] = useState(initialUserScore || 0); // 这里我们简单用votes代替评分逻辑，你可以改成1-5星
-  const [count, setCount] = useState(voteCount || 0);
-  const [loading, setLoading] = useState(false);
+  const [votes, setVotes] = useState(initialUserScore || 0) // 用户当前打分
+  const [count, setCount] = useState(voteCount || 0)        // 总票数
+  const [loading, setLoading] = useState(false)
 
-  // 模拟打分：实际上我们应该往 ratings 表里插数据
-  // 这里简化演示：点击只是加个赞
   const handleVote = async (score) => {
-    if (loading) return;
-    setLoading(true);
-    
-    // 这里简单地发给 Supabase 说：我想给这包薯片投票
-    // 注意：真实逻辑需要你需要写对应的API或者前端插入逻辑
-    alert(`你给薯片(ID:${chipId}) 打了 ${score} 分！（假装入库成功）`);
+    if (loading) return
+    setLoading(true)
 
-    setVotes(score); // 更新UI
-    setCount(count + 1);
-    setLoading(false);
-  };
+    // 从 localStorage 获取当前用户信息
+    const user = JSON.parse(localStorage.getItem('user'))
+    const user_id = user?.id
+
+    // 插入到 Supabase 的 votes 表
+    const { error } = await supabase
+      .from('votes')
+      .insert([{ chip_id: chipId, score, user_id }])
+
+    if (error) {
+      alert('投票失败：' + error.message)
+    } else {
+      alert(`你给薯片(ID:${chipId}) 打了 ${score} 分！`)
+      setVotes(score)       // 更新 UI
+      setCount(count + 1)   // 更新票数
+    }
+
+    setLoading(false)
+  }
 
   return (
     <div className="w-16 bg-gray-50 p-2 flex flex-col items-center justify-center border-r border-gray-100 shrink-0 gap-1">
@@ -36,10 +45,11 @@ export default function VoteControl({ chipId, initialUserScore, voteCount }) {
       
       {/* 向下箭头 */}
       <button 
+        onClick={() => handleVote(votes - 1)}
         className="text-gray-400 hover:text-blue-500 hover:bg-gray-200 p-1 rounded transition-colors"
       >
         ▼
       </button>
     </div>
-  );
+  )
 }
